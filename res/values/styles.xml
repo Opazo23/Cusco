@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Estilo personalizado para el PopupMenu -->
+    <style name="PopupMenuStyle" parent="Widget.AppCompat.PopupMenu">
+        <item name="android:textColor">#333333</item> <!-- Color del texto -->
+        <item name="android:background">@drawable/popup_background</item> <!-- Fondo personalizado -->
+    </style>
+
+    <style name="SearchViewStyle">
+        <item name="android:textSize">21sp</item>
+        <item name="android:textColor">#0B070F</item>
+        <item name="android:editTextColor">#0B070F</item>
+        <item name="android:textColorHint">#757575</item>
+    </style>
+
+    <style name="CustomButtonStyle2">
+        <item name="android:background">#4608A2</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:layout_margin">8dp</item>
+    </style>
+
+    <style name="CustomPopupMenu" parent="Widget.AppCompat.PopupMenu">
+        <item name="android:itemBackground">@drawable/menu_item_background</item>
+        <item name="android:divider">@android:color/transparent</item>
+        <item name="android:textColor">#0B070F</item>
+        <item name="android:dividerHeight">2dp</item>
+    </style>
+
+    <style name="CustomButtonStyle" parent="Widget.AppCompat.Button">
+        <item name="android:backgroundTint">#4608A2</item>
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+</resources>

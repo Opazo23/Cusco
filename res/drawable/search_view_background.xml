@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- res/drawable/search_view_background.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#4608A2" />
+    <corners android:radius="2dp" /> <!-- Radio más grande para esquinas redondas agresivas -->
+</shape>
+

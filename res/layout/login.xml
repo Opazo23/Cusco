@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@drawable/fondo_app2">
+
+    <!-- Título de la App -->
+    <TextView
+        android:id="@+id/appTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="CUSCO"
+        android:textColor="#4608A2"
+        android:textSize="74sp"
+
+        android:textStyle="bold"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="62dp" />
+
+    <!-- Campo de Usuario -->
+
+    <!-- Campo de Contraseña -->
+
+    <EditText
+        android:id="@+id/username"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/appTitle"
+        android:textColor="#0B070F"
+        android:layout_marginTop="130dp"
+        android:background="@drawable/edittext_bottom_line"
+        android:hint="Email"
+        android:textColorHint="#0B070F"
+        android:inputType="text"
+        android:padding="12dp"
+        android:textSize="16sp" />
+
+    <EditText
+        android:id="@+id/password"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Contraseña"
+        android:inputType="textPassword"
+        android:textColor="#0B070F"
+        android:textColorHint="#0B070F"
+        android:textSize="16sp"
+        android:layout_below="@id/username"
+        android:layout_marginTop="16dp"
+        android:padding="12dp"
+        android:background="@drawable/edittext_bottom_line"/>
+
+    <!-- Botón de Login -->
+    <Button
+        android:id="@+id/loginButton"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_below="@id/password"
+        android:layout_marginTop="34dp"
+        android:backgroundTint="#4608A2"
+
+        android:textSize="20sp"
+        android:text="Iniciar sesión"
+        android:textColor="@android:color/white" />
+
+    <!-- Botón de Registro -->
+    <Button
+        android:id="@+id/registro"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_below="@id/loginButton"
+        android:layout_marginTop="16dp"
+
+        android:textSize="20sp"
+        android:backgroundTint="#4608A2"
+
+        android:text="Regístrate"
+        android:textColor="@android:color/white" />
+</RelativeLayout>

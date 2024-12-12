@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/fondo_app2"
+    tools:context=".Principal">
+
+    <!-- Barra de búsqueda (sin cambios) -->
+    <androidx.appcompat.widget.SearchView
+        android:id="@+id/txtbuscar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+
+        android:inputType="text"
+        android:layout_alignParentTop="true"
+        android:textSize="21sp"
+        android:textColor="#0B070F"
+        android:background="@drawable/note_background"
+        android:iconifiedByDefault="false"
+        android:theme="@style/SearchViewStyle"
+
+        android:layout_margin="8dp" />
+
+    <!-- RecyclerView modificado -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/txtbuscar"
+        android:layout_marginTop="8dp"
+        android:layout_marginHorizontal="2dp"
+        android:padding="2dp"
+        android:scrollbars="vertical" />
+
+    <!-- Botón flotante (sin cambios) -->
+    <Button
+        android:id="@+id/fab"
+        android:layout_width="54dp"
+        android:layout_height="54dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/baseline_control_point_24"
+        android:src="@drawable/baseline_control_point_24"
+        android:tint="#4608A2" />
+</RelativeLayout>

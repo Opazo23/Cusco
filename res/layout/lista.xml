@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/titleEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Título"
+        android:padding="8dp"
+        android:textSize="18sp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/edit_text_background"/>
+
+    <EditText
+        android:id="@+id/noteEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Nota"
+        android:padding="8dp"
+        android:textSize="18sp"
+        android:layout_below="@id/titleEditText"
+        android:background="@drawable/edit_text_background"/>
+
+    <Button
+        android:id="@+id/saveButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Guardar"
+        android:backgroundTint="#E6693AB3"
+        android:layout_alignParentEnd="true"
+        android:background="@drawable/search_view_background"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="16dp"
+        android:src="@drawable/baseline_control_point_24"
+        android:tint="#113F6D"/>
+</RelativeLayout>
