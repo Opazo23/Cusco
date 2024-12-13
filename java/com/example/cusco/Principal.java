@@ -63,6 +63,26 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                 ItemTouchHelper.UP | ItemTouchHelper.DOWN | ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT, 0) {
 
             @Override
+            public boolean canDropOver(@NonNull RecyclerView recyclerView,
+                                       @NonNull RecyclerView.ViewHolder current,
+                                       @NonNull RecyclerView.ViewHolder target) {
+                int fromPosition = current.getAdapterPosition();
+                int toPosition = target.getAdapterPosition();
+
+                // Obtener los IDs de las notas
+                String moveNoteId = noteIds.get(noteList.get(fromPosition));
+                String targetNoteId = noteIds.get(noteList.get(toPosition));
+
+                // Verificar si alguna nota está fijada
+                Boolean isMoveNotePinned = noteAdapter.isPinned(moveNoteId);
+                Boolean isTargetNotePinned = noteAdapter.isPinned(targetNoteId);
+
+                // Solo permitir el movimiento si ninguna de las notas está fijada
+                return (isMoveNotePinned == null || !isMoveNotePinned) &&
+                        (isTargetNotePinned == null || !isTargetNotePinned);
+            }
+
+            @Override
             public boolean onMove(@NonNull RecyclerView recyclerView,
                                   @NonNull RecyclerView.ViewHolder viewHolder,
                                   @NonNull RecyclerView.ViewHolder target) {
@@ -76,6 +96,15 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                 String movedNote = noteList.get(fromPosition);
                 String noteId = noteIds.get(movedNote);
 
+                // Verificar si la nota está fijada
+                Boolean isPinned = noteAdapter.isPinned(noteId);
+                if (isPinned != null && isPinned) {
+                    Toast.makeText(Principal.this,
+                            "No se pueden mover notas fijadas",
+                            Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+
                 // Mover localmente
                 noteList.remove(fromPosition);
                 noteList.add(toPosition, movedNote);
@@ -87,7 +116,7 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                         new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
                             @Override
                             public void onSuccess(String updatedNoteId) {
-                                // La nota se movió exitosamente
+                                // Éxito silencioso
                             }
 
                             @Override
@@ -98,7 +127,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                                 noteAdapter.notifyItemMoved(toPosition, fromPosition);
                                 noteAdapter.updateOriginalList(noteList);
                                 Toast.makeText(Principal.this,
-                                        "Error al mover la nota: " + error, Toast.LENGTH_SHORT).show();
+                                        "Error al mover la nota: " + error,
+                                        Toast.LENGTH_SHORT).show();
                             }
                         });
 
@@ -107,14 +137,7 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                // No implementamos deslizar
-            }
 
-            @Override
-            public void clearView(@NonNull RecyclerView recyclerView,
-                                  @NonNull RecyclerView.ViewHolder viewHolder) {
-                super.clearView(recyclerView, viewHolder);
-                loadNotes();
             }
         };
 
@@ -199,25 +222,52 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
 
             @Override
             public void onPinClick(int position) {
-                if (position > 0) {
-                    String noteToPin = noteList.get(position);
-                    String notePinId = noteIds.get(noteToPin);
+                String noteToPin = noteList.get(position);
+                String notePinId = noteIds.get(noteToPin);
 
-                    authHelper.updateNoteOrder(notePinId, new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
+                authHelper.updateNoteOrder(notePinId, new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
+                    @Override
+                    public void onSuccess(String noteId) {
+                        // Marcar solo esta nota como fijada
+                        noteAdapter.setPinnedStatus(noteId, true);
+                        loadNotes();
+                        Toast.makeText(Principal.this, "Nota fijada", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        Toast.makeText(Principal.this,
+                                "Error al fijar la nota: " + error, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onUnpinClick(int position) {
+                String noteToUnpin = noteList.get(position);
+                String noteId = noteIds.get(noteToUnpin);
+
+                if (noteId != null) {
+                    authHelper.unpinNote(noteId, new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
                         @Override
-                        public void onSuccess(String noteId) {
+                        public void onSuccess(String unpinnedNoteId) {
+                            // Quitar explícitamente el estado de fijado
+                            noteAdapter.setPinnedStatus(noteId, false);
+                            // Mover la nota al final de la lista local
+                            noteList.remove(position);
+                            noteList.add(noteToUnpin);
+                            // Notificar al adaptador del cambio
+                            noteAdapter.notifyItemMoved(position, noteList.size() - 1);
                             loadNotes();
-                            Toast.makeText(Principal.this, "Nota fijada", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(Principal.this, "Nota desfijada", Toast.LENGTH_SHORT).show();
                         }
 
                         @Override
                         public void onFailure(String error) {
                             Toast.makeText(Principal.this,
-                                    "Error al fijar la nota: " + error, Toast.LENGTH_SHORT).show();
+                                    "Error al desfijar la nota: " + error, Toast.LENGTH_SHORT).show();
                         }
                     });
-                } else {
-                    Toast.makeText(Principal.this, "La nota ya está fijada", Toast.LENGTH_SHORT).show();
                 }
             }
 
@@ -254,13 +304,19 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
     private void loadNotes() {
         authHelper.loadUserNotes(new FirebaseAuthHelper.OnNotesLoadedListener() {
             @Override
-            public void onSuccess(Map<String, String> notesWithIds) {
+            public void onSuccess(Map<String, String> notesWithIds, Map<String, Boolean> pinnedStates) {
                 noteList.clear();
                 noteIds.clear();
                 if (notesWithIds != null) {
                     noteIds.putAll(notesWithIds);
                     noteList.addAll(notesWithIds.keySet());
                     noteAdapter.setNoteIds(noteIds);
+
+                    // Actualizar estados de fijado
+                    for (Map.Entry<String, Boolean> entry : pinnedStates.entrySet()) {
+                        noteAdapter.setPinnedStatus(entry.getKey(), entry.getValue());
+                    }
+
                     noteAdapter.updateOriginalList(noteList);
                     noteAdapter.notifyDataSetChanged();
                 }
@@ -278,6 +334,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
             }
         });
     }
+
+
 
     private void showPopupMenu(View view) {
         PopupMenu popupMenu = new PopupMenu(new ContextThemeWrapper(this, R.style.CustomPopupMenu), view);

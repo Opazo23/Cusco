@@ -8,6 +8,9 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import android.view.LayoutInflater;
+import androidx.appcompat.app.AlertDialog;
+import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
     private EditText emailEditText, passwordEditText;
@@ -48,6 +51,8 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+
+        setupForgotPassword();
     }
 
     private void validateLogin() {
@@ -81,5 +86,48 @@ public class MainActivity extends AppCompatActivity {
                 emailEditText.setError("Credenciales incorrectas");
             }
         });
+    }
+
+    private void setupForgotPassword() {
+        TextView forgotPasswordText = findViewById(R.id.forgotPasswordText);
+        forgotPasswordText.setOnClickListener(v -> showForgotPasswordDialog());
+    }
+
+    private void showForgotPasswordDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Recuperar contraseña");
+
+        // Configurar el layout del diálogo
+        View viewInflated = LayoutInflater.from(this).inflate(R.layout.dialog_forgot_password, null);
+        final EditText input = viewInflated.findViewById(R.id.emailInput);
+        builder.setView(viewInflated);
+
+        builder.setPositiveButton("Enviar", (dialog, which) -> {
+            String email = input.getText().toString().trim();
+            if (!TextUtils.isEmpty(email)) {
+                authHelper.resetPassword(email, new FirebaseAuthHelper.OnPasswordResetListener() {
+                    @Override
+                    public void onSuccess() {
+                        Toast.makeText(MainActivity.this,
+                                "Se ha enviado un email para restablecer tu contraseña",
+                                Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        Toast.makeText(MainActivity.this,
+                                "Error: " + error,
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } else {
+                Toast.makeText(MainActivity.this,
+                        "Por favor, introduce un email válido",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
+        builder.show();
     }
 }

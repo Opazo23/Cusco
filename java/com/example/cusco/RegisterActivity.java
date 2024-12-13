@@ -53,7 +53,8 @@ public class RegisterActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess() {
                         Toast.makeText(RegisterActivity.this,
-                                "Registro exitoso", Toast.LENGTH_SHORT).show();
+                                "Registro exitoso. Revisa tu email para verificar tu cuenta",
+                                Toast.LENGTH_LONG).show();
                         Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
                         startActivity(intent);
                         finish();

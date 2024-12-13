@@ -7,6 +7,7 @@ import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -20,6 +21,7 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
     private List<String> noteList;
     private List<String> noteList_original;
     private Map<String, String> noteIds;
+    private Map<String, Boolean> pinnedNotes;
     private OnItemClickListener onItemClickListener;
     private Context context;
     private FirebaseAuthHelper authHelper;
@@ -29,6 +31,7 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         noteList_original = new ArrayList<>();
         noteList_original.addAll(noteList);
         this.noteIds = new HashMap<>();
+        this.pinnedNotes = new HashMap<>();
         this.authHelper = authHelper;
     }
 
@@ -37,11 +40,21 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         Log.d("FIREBASE_NOTE", "IDs de notas actualizados en adapter: " + noteIds.size());
     }
 
+    // Método para actualizar el estado de fijado de una nota
+    @SuppressLint("NotifyDataSetChanged")
+    public void setPinnedStatus(String noteId, boolean isPinned) {
+        if (noteId != null) {
+            pinnedNotes.put(noteId, isPinned);
+            notifyDataSetChanged();
+        }
+    }
+
     public interface OnItemClickListener {
         void onItemClick(View v);
         void onItemClick(String string);
         void onEditClick(String note, int position);
         void onPinClick(int position);
+        void onUnpinClick(int position); // Nuevo método
         void onDeleteClick(int position);
     }
 
@@ -62,6 +75,12 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
     public void onBindViewHolder(@NonNull NoteViewHolder holder, int position) {
         String note = noteList.get(position);
         holder.noteTextView.setText(note);
+
+        // Mostrar/ocultar el icono de pin
+        String noteId = noteIds.get(note);
+        Boolean isPinned = pinnedNotes.get(noteId);
+        holder.pinIcon.setVisibility(isPinned != null && isPinned ? View.VISIBLE : View.GONE);
+
         holder.itemView.setOnClickListener(v -> showPopupMenu(v, position, note));
     }
 
@@ -70,12 +89,19 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         PopupMenu popup = new PopupMenu(new ContextThemeWrapper(context, R.style.CustomPopupMenu), view);
         popup.getMenuInflater().inflate(R.menu.note_context_menu, popup.getMenu());
 
+        // Obtener el estado de fijado de la nota
+        String noteId = noteIds.get(note);
+        Boolean isPinned = pinnedNotes.get(noteId);
+
+        // Mostrar/ocultar las opciones según el estado de fijado
+        popup.getMenu().findItem(R.id.action_pin_note).setVisible(isPinned == null || !isPinned);
+        popup.getMenu().findItem(R.id.action_unpin_note).setVisible(isPinned != null && isPinned);
+
         popup.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.action_edit_note) {
                 Log.d("FIREBASE_NOTE", "Opción editar seleccionada");
                 if (onItemClickListener != null) {
-                    String noteId = noteIds.get(note);
                     onItemClickListener.onEditClick(note, position);
                 }
                 return true;
@@ -85,10 +111,15 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
                     onItemClickListener.onPinClick(position);
                 }
                 return true;
+            } else if (itemId == R.id.action_unpin_note) {
+                Log.d("FIREBASE_NOTE", "Opción desfijar seleccionada");
+                if (onItemClickListener != null) {
+                    onItemClickListener.onUnpinClick(position);
+                }
+                return true;
             } else if (itemId == R.id.action_delete_note) {
                 Log.d("FIREBASE_NOTE", "Opción borrar seleccionada");
                 if (onItemClickListener != null) {
-                    String noteId = noteIds.get(note);
                     if (noteId != null) {
                         onItemClickListener.onDeleteClick(position);
                     }
@@ -108,11 +139,17 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
 
     static class NoteViewHolder extends RecyclerView.ViewHolder {
         TextView noteTextView;
+        ImageView pinIcon;
 
         public NoteViewHolder(@NonNull View itemView) {
             super(itemView);
             noteTextView = itemView.findViewById(R.id.noteTextView);
+            pinIcon = itemView.findViewById(R.id.pinIcon);
         }
+    }
+
+    public Boolean isPinned(String noteId) {
+        return pinnedNotes.get(noteId);
     }
 
     @SuppressLint("NotifyDataSetChanged")
