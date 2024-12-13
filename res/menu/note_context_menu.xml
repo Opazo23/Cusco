@@ -7,6 +7,9 @@
         android:id="@+id/action_pin_note"
         android:title="Fijar nota" />
     <item
+        android:id="@+id/action_unpin_note"
+        android:title="Desfijar nota" />
+    <item
         android:id="@+id/action_delete_note"
-        android:title="Borrar nota" />
+        android:title="Eliminar nota" />
 </menu>

@@ -1,20 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
     android:layout_margin="1dp"
     android:padding="1dp">
-
 
     <TextView
         android:id="@+id/noteTextView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="17sp"
-
         android:layout_margin="1dp"
         android:background="@drawable/note_background"
         android:textColor="#040407"
         android:padding="10dp"/>
-</LinearLayout>
+
+    <ImageView
+        android:id="@+id/pinIcon"
+        android:layout_width="25dp"
+        android:layout_height="25dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:layout_margin="4dp"
+        android:src="@drawable/pin_fijar"
+        android:visibility="gone"/>
+
+</RelativeLayout>

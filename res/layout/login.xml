@@ -50,13 +50,27 @@
         android:padding="12dp"
         android:background="@drawable/edittext_bottom_line"/>
 
+
+    <TextView
+        android:id="@+id/forgotPasswordText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/password"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="8dp"
+        android:text="¿Has olvidado tu contraseña?"
+        android:textColor="#4608A2"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="4dp"/>
+
     <!-- Botón de Login -->
     <Button
         android:id="@+id/loginButton"
         android:layout_width="match_parent"
         android:layout_height="60dp"
         android:layout_below="@id/password"
-        android:layout_marginTop="34dp"
+        android:layout_marginTop="50dp"
         android:backgroundTint="#4608A2"
 
         android:textSize="20sp"
