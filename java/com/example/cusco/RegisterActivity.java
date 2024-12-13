@@ -68,27 +68,32 @@ public class RegisterActivity extends AppCompatActivity {
                 });
     }
 
+    //validacion al registar un usuario
     private boolean validateRegistration() {
         String userNameInput = username.getText().toString().trim();
         String emailInput = email.getText().toString().trim();
         String passwordInput = password.getText().toString().trim();
         String confirmPasswordInput = confirmPassword.getText().toString().trim();
 
+        //si el usuario está vacío
         if (userNameInput.isEmpty()) {
             username.setError("El nombre de usuario es obligatorio");
             return false;
         }
 
+        //si el email está vacío
         if (emailInput.isEmpty() || !android.util.Patterns.EMAIL_ADDRESS.matcher(emailInput).matches()) {
             email.setError("Introduce un correo electrónico válido");
             return false;
         }
 
+        //si la password está vacía o no cumple
         if (passwordInput.isEmpty() || !isPasswordValid(passwordInput)) {
             password.setError("La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un carácter especial");
             return false;
         }
 
+        //si no coinciden las contraseñas
         if (!passwordInput.equals(confirmPasswordInput)) {
             confirmPassword.setError("Las contraseñas no coinciden");
             return false;

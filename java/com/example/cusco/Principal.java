@@ -38,10 +38,12 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
     private androidx.appcompat.widget.SearchView txtbusca;
     private FirebaseAuthHelper authHelper;
 
-
-
-
     @Override
+    //Método inicial que se ejecuta cuando se crea la actividad
+    //Inicializa las variables y componentes principales
+    //Configura el RecyclerView y el drag & drop
+    //Configura la barra de búsqueda
+    //Carga las notas existentes
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
@@ -157,7 +159,7 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
         findViewById(R.id.fab).setOnClickListener(v -> showPopupMenu(v));
     }
 
-
+    //Maneja el resultado de la edición de una nota
     private final ActivityResultLauncher<Intent> editNoteLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -194,6 +196,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
             }
     );
 
+    //Configura todos los listeners del adaptador de notas
+    //Maneja los clicks para editar, fijar, desfijar y eliminar notas
     private void setupNoteAdapter() {
         noteAdapter.setOnItemClickListener(new NoteAdapter.OnItemClickListener() {
             @Override
@@ -301,6 +305,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
         });
     }
 
+    //Carga todas las notas del usuario desde Firebase
+    //Actualiza la interfaz con las notas cargadas
     private void loadNotes() {
         authHelper.loadUserNotes(new FirebaseAuthHelper.OnNotesLoadedListener() {
             @Override
@@ -336,7 +342,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
     }
 
 
-
+    //Muestra el menú popup cuando se hace clic en el botón FAB
+    //Infla el menú con las opciones disponibles
     private void showPopupMenu(View view) {
         PopupMenu popupMenu = new PopupMenu(new ContextThemeWrapper(this, R.style.CustomPopupMenu), view);
         MenuInflater inflater = popupMenu.getMenuInflater();
@@ -346,6 +353,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
     }
 
     @Override
+    //Maneja los clicks en las opciones del menú popup
+    //Implementa las acciones para crear nota, cerrar sesión y eliminar todas las notas
     public boolean onMenuItemClick(MenuItem item) {
         int itemId = item.getItemId();
 
@@ -378,6 +387,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
         return false;
     }
 
+    //Añade una nueva nota a Firebase
+    //Actualiza la interfaz con la nueva nota
     @SuppressLint("NotifyDataSetChanged")
     private void addNote(String note) {
         authHelper.addNoteToFirestore(note, new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
@@ -399,6 +410,7 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
         });
     }
 
+    //metodo cerrar sesion
     private void cerrarSesion() {
         authHelper.signOut();
         Intent intent = new Intent(this, MainActivity.class);
@@ -407,6 +419,7 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
         finish();
     }
 
+    //metodo borrar todas las notas del usuario
     private void deleteAllNotes() {
         FirebaseUser currentUser = authHelper.getCurrentUser();
         if (currentUser == null) {
@@ -451,6 +464,7 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
     }
 
     @Override
+    //Filtran las notas según el texto introducido
     public boolean onQueryTextSubmit(String query) {
         if (noteAdapter != null) {
             noteAdapter.filter(query);
@@ -459,6 +473,7 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
     }
 
     @Override
+    //Filtran las notas según el texto introducido
     public boolean onQueryTextChange(String newText) {
         if (noteAdapter != null) {
             noteAdapter.filter(newText);
@@ -467,6 +482,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
     }
 
     @Override
+    //Maneja el resultado de crear una nueva nota
+    //Añade la nota nueva si la creación fue exitosa
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == CREATE_LIST_REQUEST && resultCode == RESULT_OK) {
