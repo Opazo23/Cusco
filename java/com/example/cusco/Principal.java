@@ -4,6 +4,7 @@ import androidx.appcompat.app.AlertDialog;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.ContextThemeWrapper;
 import android.view.MenuInflater;
@@ -14,8 +15,11 @@ import androidx.appcompat.widget.PopupMenu;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.ItemTouchHelper;
+
+import android.widget.TextView;
 import android.widget.Toast;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +41,8 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
     private Map<String, String> noteIds;
     private androidx.appcompat.widget.SearchView txtbusca;
     private FirebaseAuthHelper authHelper;
+    private TextView noResultsText;
+    private boolean isDragging = false;
 
     @Override
     //Método inicial que se ejecuta cuando se crea la actividad
@@ -54,13 +60,18 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
         noteIds = new HashMap<>();
 
         // Configurar RecyclerView
+        // En el método onCreate, después de inicializar el RecyclerView
         recyclerView = findViewById(R.id.recyclerView);
         noteAdapter = new NoteAdapter(noteList, authHelper);
-        recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
+
+        // Crea un GridLayoutManager personalizado que respete el orden
+        GridLayoutManager gridLayoutManager = new GridLayoutManager(this, 2);
+        recyclerView.setLayoutManager(gridLayoutManager);
         recyclerView.setAdapter(noteAdapter);
+        //campo para cuando ni hay resultados
+        noResultsText = findViewById(R.id.noResultsText);
 
 
-        // Configurar Drag and Drop
         ItemTouchHelper.Callback callback = new ItemTouchHelper.SimpleCallback(
                 ItemTouchHelper.UP | ItemTouchHelper.DOWN | ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT, 0) {
 
@@ -71,17 +82,27 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                 int fromPosition = current.getAdapterPosition();
                 int toPosition = target.getAdapterPosition();
 
-                // Obtener los IDs de las notas
-                String moveNoteId = noteIds.get(noteList.get(fromPosition));
-                String targetNoteId = noteIds.get(noteList.get(toPosition));
+                if (fromPosition < 0 || toPosition < 0) {
+                    return false;
+                }
 
-                // Verificar si alguna nota está fijada
+                // Solo verificar si alguna de las notas está fijada
+                String moveNoteContent = noteList.get(fromPosition);
+                String targetNoteContent = noteList.get(toPosition);
+
+                String moveNoteId = noteIds.get(moveNoteContent);
+                String targetNoteId = noteIds.get(targetNoteContent);
+
                 Boolean isMoveNotePinned = noteAdapter.isPinned(moveNoteId);
                 Boolean isTargetNotePinned = noteAdapter.isPinned(targetNoteId);
 
-                // Solo permitir el movimiento si ninguna de las notas está fijada
-                return (isMoveNotePinned == null || !isMoveNotePinned) &&
-                        (isTargetNotePinned == null || !isTargetNotePinned);
+                // No permitir mover si alguna nota está fijada
+                if ((isMoveNotePinned != null && isMoveNotePinned) ||
+                        (isTargetNotePinned != null && isTargetNotePinned)) {
+                    return false;
+                }
+
+                return true;
             }
 
             @Override
@@ -95,8 +116,13 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                     return false;
                 }
 
-                String movedNote = noteList.get(fromPosition);
-                String noteId = noteIds.get(movedNote);
+                isDragging = true;  // Indicar que estamos en medio de un drag
+
+                String movedNoteContent = noteList.get(fromPosition);
+                String noteId = noteIds.get(movedNoteContent);
+
+                Log.d("DragDrop", "Moviendo nota: " + movedNoteContent);
+                Log.d("DragDrop", "ID de la nota: " + noteId);
 
                 // Verificar si la nota está fijada
                 Boolean isPinned = noteAdapter.isPinned(noteId);
@@ -107,31 +133,50 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                     return false;
                 }
 
-                // Mover localmente
-                noteList.remove(fromPosition);
-                noteList.add(toPosition, movedNote);
+                // Crear una copia temporal de las listas para mantener el orden
+                List<String> newNoteList = new ArrayList<>(noteList);
+
+                // Realizar el movimiento en la copia
+                String movedNote = newNoteList.remove(fromPosition);
+                newNoteList.add(toPosition, movedNote);
+
+                // Actualizar las listas reales
+                noteList.clear();
+                noteList.addAll(newNoteList);
+
+                // Actualizar el adaptador
                 noteAdapter.notifyItemMoved(fromPosition, toPosition);
-                noteAdapter.updateOriginalList(noteList);
+                noteAdapter.updateOriginalList(new ArrayList<>(noteList));
 
-                // Actualizar orden en Firebase
-                authHelper.updateNoteOrderDragAndDrop(noteId, toPosition,
-                        new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
-                            @Override
-                            public void onSuccess(String updatedNoteId) {
-                                // Éxito silencioso
-                            }
+                // Log del nuevo orden y verificación de IDs
+                Log.d("DragDrop", "Nuevo orden después del movimiento:");
+                for (int i = 0; i < noteList.size(); i++) {
+                    String content = noteList.get(i);
+                    String id = noteIds.get(content);
+                    Log.d("DragDrop", String.format("Posición %d: %s (ID: %s)", i, content, id));
+                }
 
-                            @Override
-                            public void onFailure(String error) {
-                                // Revertir el movimiento local si falla
-                                noteList.remove(toPosition);
-                                noteList.add(fromPosition, movedNote);
-                                noteAdapter.notifyItemMoved(toPosition, fromPosition);
-                                noteAdapter.updateOriginalList(noteList);
-                                Toast.makeText(Principal.this,
-                                        "Error al mover la nota: " + error,
-                                        Toast.LENGTH_SHORT).show();
-                            }
+                // Actualizar en Firebase
+                FirebaseFirestore db = FirebaseFirestore.getInstance();
+                db.collection("notes")
+                        .document(noteId)
+                        .update("order", toPosition)
+                        .addOnSuccessListener(aVoid -> {
+                            // Esperar un momento para asegurar la sincronización
+                            new Handler().postDelayed(() -> {
+                                isDragging = false;  // Drag completado
+                                Log.d("DragDrop", "Drag & Drop completado y sincronizado");
+                            }, 500);  // Esperar 500ms
+                        })
+                        .addOnFailureListener(e -> {
+                            // Revertir cambios en caso de error
+                            isDragging = false;
+                            noteList.clear();
+                            noteList.addAll(newNoteList);
+                            noteAdapter.notifyDataSetChanged();
+                            Toast.makeText(Principal.this,
+                                    "Error al actualizar el orden: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
                         });
 
                 return true;
@@ -139,7 +184,7 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-
+                // No implementado
             }
         };
 
@@ -151,12 +196,31 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
             txtbusca.setOnQueryTextListener(this);
         }
 
+        noteAdapter.setFilterResultListener(isEmpty -> {
+            if (isEmpty) {
+                noResultsText.setVisibility(View.VISIBLE);
+                recyclerView.setVisibility(View.GONE);
+            } else {
+                noResultsText.setVisibility(View.GONE);
+                recyclerView.setVisibility(View.VISIBLE);
+            }
+        });
+
         // Cargar notas existentes
         loadNotes();
 
         // Configurar listeners
         setupNoteAdapter();
         findViewById(R.id.fab).setOnClickListener(v -> showPopupMenu(v));
+    }
+
+    private void logNoteInfo(String noteContent, int position) {
+        String noteId = noteIds.get(noteContent);
+        Log.d("NoteOperation", "Nota en posición " + position + ":");
+        Log.d("NoteOperation", "Contenido: " + noteContent);
+        Log.d("NoteOperation", "ID: " + noteId);
+        Boolean isPinned = noteAdapter.isPinned(noteId);
+        Log.d("NoteOperation", "Está fijada: " + (isPinned != null && isPinned));
     }
 
     //Maneja el resultado de la edición de una nota
@@ -226,25 +290,73 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
 
             @Override
             public void onPinClick(int position) {
-                String noteToPin = noteList.get(position);
-                String notePinId = noteIds.get(noteToPin);
+                if (isDragging) {
+                    Toast.makeText(Principal.this,
+                            "Por favor, espera un momento antes de fijar la nota",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                authHelper.updateNoteOrder(notePinId, new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
-                    @Override
-                    public void onSuccess(String noteId) {
-                        // Marcar solo esta nota como fijada
-                        noteAdapter.setPinnedStatus(noteId, true);
-                        loadNotes();
-                        Toast.makeText(Principal.this, "Nota fijada", Toast.LENGTH_SHORT).show();
-                    }
+                // Como verificación adicional, recargar las notas antes de fijar
+                FirebaseFirestore.getInstance()
+                        .collection("notes")
+                        .whereEqualTo("user_id", authHelper.getCurrentUser().getUid())
+                        .get()
+                        .addOnSuccessListener(querySnapshot -> {
+                            // Verificar que la posición sigue siendo válida
+                            if (position >= noteList.size()) {
+                                Toast.makeText(Principal.this,
+                                        "Error: Posición de nota inválida",
+                                        Toast.LENGTH_SHORT).show();
+                                return;
+                            }
 
-                    @Override
-                    public void onFailure(String error) {
-                        Toast.makeText(Principal.this,
-                                "Error al fijar la nota: " + error, Toast.LENGTH_SHORT).show();
-                    }
-                });
+                            String noteContent = noteList.get(position);
+                            String noteId = noteIds.get(noteContent);
+
+                            // Verificar que el ID existe en los resultados recientes
+                            boolean found = false;
+                            for (DocumentSnapshot doc : querySnapshot) {
+                                if (doc.getId().equals(noteId) &&
+                                        noteContent.equals(doc.getString("content"))) {
+                                    found = true;
+                                    break;
+                                }
+                            }
+
+                            if (!found) {
+                                Toast.makeText(Principal.this,
+                                        "Error: La nota no se encontró en el estado actual",
+                                        Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+
+                            authHelper.updateNoteOrder(noteId, noteContent,
+                                    new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
+                                        @Override
+                                        public void onSuccess(String updatedNoteId) {
+                                            noteAdapter.setPinnedStatus(updatedNoteId, true);
+                                            loadNotes();
+                                            Toast.makeText(Principal.this,
+                                                    "Nota fijada correctamente",
+                                                    Toast.LENGTH_SHORT).show();
+                                        }
+
+                                        @Override
+                                        public void onFailure(String error) {
+                                            Toast.makeText(Principal.this,
+                                                    "Error al fijar la nota: " + error,
+                                                    Toast.LENGTH_SHORT).show();
+                                        }
+                                    });
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(Principal.this,
+                                    "Error al verificar el estado actual: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        });
             }
+
 
             @Override
             public void onUnpinClick(int position) {
@@ -255,14 +367,12 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                     authHelper.unpinNote(noteId, new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
                         @Override
                         public void onSuccess(String unpinnedNoteId) {
-                            // Quitar explícitamente el estado de fijado
+                            // Actualizar estado local
                             noteAdapter.setPinnedStatus(noteId, false);
-                            // Mover la nota al final de la lista local
-                            noteList.remove(position);
-                            noteList.add(noteToUnpin);
-                            // Notificar al adaptador del cambio
-                            noteAdapter.notifyItemMoved(position, noteList.size() - 1);
+
+                            // Recargar todas las notas para asegurar el orden correcto
                             loadNotes();
+
                             Toast.makeText(Principal.this, "Nota desfijada", Toast.LENGTH_SHORT).show();
                         }
 
@@ -285,7 +395,11 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
                             new FirebaseAuthHelper.OnNoteOperationCompleteListener() {
                                 @Override
                                 public void onSuccess(String deletedNoteId) {
+                                    // Eliminar de la lista principal
                                     noteList.remove(position);
+                                    // Eliminar de la lista original
+                                    noteAdapter.removeFromOriginalList(noteContent);
+
                                     noteIds.remove(noteContent);
                                     noteAdapter.setNoteIds(noteIds);
                                     noteAdapter.notifyItemRemoved(position);
@@ -427,26 +541,22 @@ public class Principal extends AppCompatActivity implements PopupMenu.OnMenuItem
             return;
         }
 
-        // Primero obtenemos todas las notas del usuario
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("notes")
                 .whereEqualTo("user_id", currentUser.getUid())
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    // Creamos un batch para realizar todas las eliminaciones en una sola transacción
                     WriteBatch batch = db.batch();
 
                     for (DocumentSnapshot document : queryDocumentSnapshots) {
                         batch.delete(document.getReference());
                     }
 
-                    // Ejecutamos el batch
                     batch.commit().addOnSuccessListener(aVoid -> {
-                        // Limpiamos las listas locales
                         noteList.clear();
                         noteIds.clear();
                         noteAdapter.setNoteIds(noteIds);
-                        noteAdapter.updateOriginalList(noteList);
+                        noteAdapter.clearOriginalList(); // Añadir este método
                         noteAdapter.notifyDataSetChanged();
 
                         Toast.makeText(Principal.this,

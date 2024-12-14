@@ -6,6 +6,8 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.WriteBatch;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,15 +74,32 @@ public class FirebaseAuthHelper {
             return;
         }
 
-        // Actualiza el estado de la nota
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("order", Long.MAX_VALUE);  // Mueve al final
-        updates.put("isPinned", false);        // Quita el pin
-
+        // Obtener todas las notas no fijadas para calcular el nuevo orden
         db.collection("notes")
-                .document(noteId)
-                .update(updates)
-                .addOnSuccessListener(aVoid -> listener.onSuccess(noteId))
+                .whereEqualTo("user_id", currentUser.getUid())
+                .whereEqualTo("isPinned", false)
+                .orderBy("order", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    long newOrder;
+                    if (queryDocumentSnapshots.isEmpty()) {
+                        newOrder = 0;
+                    } else {
+                        DocumentSnapshot lastDoc = queryDocumentSnapshots.getDocuments().get(0);
+                        Long lastOrder = lastDoc.getLong("order");
+                        newOrder = (lastOrder != null ? lastOrder : 0) + 1;
+                    }
+
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("order", newOrder);  // Nuevo orden al final de la lista
+                    updates.put("isPinned", false);  // Quitar fijado
+
+                    db.collection("notes")
+                            .document(noteId)
+                            .update(updates)
+                            .addOnSuccessListener(aVoid -> listener.onSuccess(noteId))
+                            .addOnFailureListener(e -> listener.onFailure(e.getMessage()));
+                })
                 .addOnFailureListener(e -> listener.onFailure(e.getMessage()));
     }
 
@@ -163,27 +182,43 @@ public class FirebaseAuthHelper {
     }
 
     // Actualiza el orden de una nota (fijar nota)
-    public void updateNoteOrder(String noteId, OnNoteOperationCompleteListener listener) {
-        FirebaseUser currentUser = mAuth.getCurrentUser();
+    public void updateNoteOrder(String noteId, String noteContent, OnNoteOperationCompleteListener listener) {
+        FirebaseUser currentUser = getCurrentUser();
         if (currentUser == null) {
             listener.onFailure("No hay usuario autenticado");
             return;
         }
 
-        // Prepara los datos para fijar la nota
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("order", 0);
-        updates.put("isPinned", true);
-
-        // Actualiza la nota en Firestore
+        // Primero verificar que la nota existe y tiene el contenido correcto
         db.collection("notes")
                 .document(noteId)
-                .update(updates)
-                .addOnSuccessListener(aVoid -> listener.onSuccess(noteId))
+                .get()
+                .addOnSuccessListener(noteDoc -> {
+                    if (!noteDoc.exists()) {
+                        listener.onFailure("Nota no encontrada");
+                        return;
+                    }
+
+                    String currentContent = noteDoc.getString("content");
+                    if (!noteContent.equals(currentContent)) {
+                        listener.onFailure("ID de nota no coincide con el contenido");
+                        return;
+                    }
+
+                    // Primero actualizar la nota que queremos fijar
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("isPinned", true);
+                    updates.put("order", 0);
+
+                    db.collection("notes")
+                            .document(noteId)
+                            .update(updates)
+                            .addOnSuccessListener(aVoid -> listener.onSuccess(noteId))
+                            .addOnFailureListener(e -> listener.onFailure(e.getMessage()));
+                })
                 .addOnFailureListener(e -> listener.onFailure(e.getMessage()));
     }
 
-    // Carga todas las notas del usuario
     public void loadUserNotes(OnNotesLoadedListener listener) {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
@@ -191,26 +226,61 @@ public class FirebaseAuthHelper {
             return;
         }
 
-        // Obtiene las notas ordenadas por orden
         db.collection("notes")
                 .whereEqualTo("user_id", currentUser.getUid())
-                .orderBy("order", Query.Direction.ASCENDING)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     Map<String, String> notesWithIds = new LinkedHashMap<>();
                     Map<String, Boolean> pinnedStates = new HashMap<>();
+                    List<DocumentSnapshot> pinnedNotes = new ArrayList<>();
+                    List<DocumentSnapshot> unpinnedNotes = new ArrayList<>();
 
-                    // Procesa cada nota y su estado
+                    // Separar notas fijadas y no fijadas
                     for (DocumentSnapshot document : queryDocumentSnapshots) {
-                        String content = document.getString("content");
                         Boolean isPinned = document.getBoolean("isPinned");
-                        if (content != null) {
-                            notesWithIds.put(content, document.getId());
-                            if (isPinned != null) {
-                                pinnedStates.put(document.getId(), isPinned);
-                            }
+                        if (isPinned != null && isPinned) {
+                            pinnedNotes.add(document);
+                        } else {
+                            unpinnedNotes.add(document);
                         }
                     }
+
+                    // Ordenar notas fijadas por orden
+                    pinnedNotes.sort((a, b) -> {
+                        Long orderA = a.getLong("order");
+                        Long orderB = b.getLong("order");
+                        if (orderA == null) orderA = 0L;
+                        if (orderB == null) orderB = 0L;
+                        return orderA.compareTo(orderB);
+                    });
+
+                    // Ordenar notas no fijadas por orden
+                    unpinnedNotes.sort((a, b) -> {
+                        Long orderA = a.getLong("order");
+                        Long orderB = b.getLong("order");
+                        if (orderA == null) orderA = 0L;
+                        if (orderB == null) orderB = 0L;
+                        return orderA.compareTo(orderB);
+                    });
+
+                    // Primero añadir notas fijadas
+                    for (DocumentSnapshot document : pinnedNotes) {
+                        String content = document.getString("content");
+                        if (content != null) {
+                            notesWithIds.put(content, document.getId());
+                            pinnedStates.put(document.getId(), true);
+                        }
+                    }
+
+                    // Luego añadir notas no fijadas
+                    for (DocumentSnapshot document : unpinnedNotes) {
+                        String content = document.getString("content");
+                        if (content != null) {
+                            notesWithIds.put(content, document.getId());
+                            pinnedStates.put(document.getId(), false);
+                        }
+                    }
+
                     listener.onSuccess(notesWithIds, pinnedStates);
                 })
                 .addOnFailureListener(e -> {
@@ -250,39 +320,14 @@ public class FirebaseAuthHelper {
             return;
         }
 
-        // Verifica si la nota está fijada
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("order", newPosition);
+        updates.put("isPinned", false);
+
         db.collection("notes")
                 .document(noteId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    Boolean isPinned = documentSnapshot.getBoolean("isPinned");
-                    if (isPinned != null && isPinned) {
-                        listener.onFailure("No se puede mover una nota fijada");
-                        return;
-                    }
-
-                    // Obtiene las notas no fijadas para actualizar orden
-                    db.collection("notes")
-                            .whereEqualTo("user_id", currentUser.getUid())
-                            .whereEqualTo("isPinned", false)
-                            .get()
-                            .addOnSuccessListener(queryDocumentSnapshots -> {
-                                WriteBatch batch = db.batch();
-                                List<DocumentSnapshot> unfixedNotes = queryDocumentSnapshots.getDocuments();
-
-                                // Actualiza la posición de la nota
-                                Map<String, Object> updates = new HashMap<>();
-                                updates.put("order", newPosition);
-                                updates.put("isPinned", false);
-
-                                db.collection("notes")
-                                        .document(noteId)
-                                        .update(updates)
-                                        .addOnSuccessListener(aVoid -> listener.onSuccess(noteId))
-                                        .addOnFailureListener(e -> listener.onFailure(e.getMessage()));
-                            })
-                            .addOnFailureListener(e -> listener.onFailure(e.getMessage()));
-                })
+                .update(updates)
+                .addOnSuccessListener(aVoid -> listener.onSuccess(noteId))
                 .addOnFailureListener(e -> listener.onFailure(e.getMessage()));
     }
 

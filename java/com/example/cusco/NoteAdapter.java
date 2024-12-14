@@ -184,18 +184,47 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         noteList_original.addAll(newList);
     }
 
-    // Filtra las notas según el texto de búsqueda
+    public interface OnFilterResultListener {
+        void onNoResults(boolean isEmpty);
+    }
+
+    private OnFilterResultListener filterResultListener;
+
+    public void setFilterResultListener(OnFilterResultListener listener) {
+        this.filterResultListener = listener;
+    }
+
+    // Método para eliminar una nota de la lista original
+    public void removeFromOriginalList(String note) {
+        noteList_original.remove(note);
+    }
+
+    // Método para limpiar la lista original
+    public void clearOriginalList() {
+        noteList_original.clear();
+    }
+
+    public Map<String, Boolean> getPinnedNotes() {
+        return pinnedNotes;
+    }
+
     @SuppressLint("NotifyDataSetChanged")
     public void filter(String text) {
         if (text.isEmpty() || text.length() == 0) {
             noteList.clear();
             noteList.addAll(noteList_original);
+            if (filterResultListener != null) {
+                filterResultListener.onNoResults(false);
+            }
         } else {
             noteList.clear();
             for (String note : noteList_original) {
                 if (note.toLowerCase().trim().contains(text.toLowerCase().trim())) {
                     noteList.add(note);
                 }
+            }
+            if (filterResultListener != null) {
+                filterResultListener.onNoResults(noteList.isEmpty());
             }
         }
         notifyDataSetChanged();
